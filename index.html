@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YAS MACHINE: FBP INTERACTIVE SIMULATION V2.1</title>
+    <style>
+        /* Console Theme & Layout */
+        body {
+            background-color: #000000;
+            color: #00ffc8;
+            font-family: 'Consolas', 'Monospace', monospace;
+            margin: 0;
+            padding: 20px;
+            overflow-x: hidden;
+            line-height: 1.4;
+        }
+        .console-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        .main-content { flex: 2; display: flex; flex-direction: column; gap: 20px; }
+        .log-panel {
+            border: 2px solid #00ffc8;
+            padding: 15px;
+            box-shadow: 0 0 15px rgba(0, 255, 200, 0.5);
+            background-color: rgba(0, 20, 20, 0.7);
+            overflow-y: auto;
+            max-height: 45vh;
+        }
+        .config-panel {
+            flex: 1;
+            border: 2px solid #ff00ff;
+            padding: 15px;
+            box-shadow: 0 0 15px rgba(255, 0, 255, 0.5);
+            background-color: rgba(20, 0, 20, 0.7);
+            min-height: 90vh;
+            overflow-y: auto;
+        }
+
+        /* Headings & Text */
+        h1 { color: #ff00ff; border-bottom: 3px solid #00ffc8; padding-bottom: 5px; margin-top: 0; font-size: 1.5em; }
+        h3 { color: #00ff41; margin-top: 20px; border-bottom: 1px dashed #00ff41; padding-bottom: 5px; }
+        .log-entry { margin-bottom: 5px; font-size: 0.9em; }
+        .status-header { color: #ff00ff; font-weight: bold; margin-bottom: 15px; }
+        .process { color: #ffff00; }
+        .complete { color: #00ff41; }
+        .command { color: #00ffff; }
+        .critical { color: #ff0041; font-weight: bold; }
+        .label { color: #00ff41; font-weight: bold; }
+
+        /* FBP Visualizer */
+        .fbp-visualizer {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid #00ffc8;
+        }
+        #fbp-plate-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            border: 5px solid #ff00ff;
+            box-shadow: 0 0 20px #00ffff;
+            background-color: rgba(0, 20, 20, 0.9);
+            margin: 20px 0;
+        }
+        #fbp-plate {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            transition: transform 3s ease-in-out;
+            position: relative;
+        }
+        #fbp-pointer {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            background-color: #ff00ff;
+            border-radius: 50%;
+            z-index: 10;
+        }
+        #fbp-pointer-arm {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 2px;
+            height: 150px;
+            background-color: #ff00ff;
+            transform-origin: bottom center;
+            transform: translateX(-50%) rotate(0deg);
+            transition: transform 3s ease-in-out;
+            z-index: 9;
+        }
+        .angle-marker {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #ff0041;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            font-size: 0.7em;
+            color: white;
+            padding: 2px;
+            text-align: center;
+        }
+        .marker-0 { top: 0%; left: 50%; transform: translate(-50%, -50%); color: #00ff41; }
+        .marker-15 { top: 5%; left: 60%; transform: rotate(15deg) translate(25px, 25px); background: none; }
+        .marker-152 { top: 80%; left: 80%; transform: rotate(-152deg) translate(25px, 25px); background: none; }
+        .marker-180 { top: 100%; left: 50%; transform: translate(-50%, -50%); color: #00ff41; }
+        .marker-48 { top: 10%; left: 80%; transform: rotate(48deg) translate(25px, 25px); background: none; }
+        .marker-96 { top: 50%; left: 100%; transform: rotate(96deg) translate(25px, 25px); background: none; }
+        .marker-144 { top: 90%; left: 70%; transform: rotate(144deg) translate(25px, 25px); background: none; }
+        .marker-56 { top: 10%; left: 70%; transform: rotate(56deg) translate(25px, 25px); background: none; }
+        .marker-64 { top: 15%; left: 75%; transform: rotate(64deg) translate(25px, 25px); background: none; }
+        .marker-text {
+            position: absolute;
+            transform-origin: 0 0;
+            font-size: 0.7em;
+            white-space: nowrap;
+            color: #ff00ff;
+        }
+        .marker-text.t0 { top: 0; left: 50%; transform: translate(-50%, -100%); }
+        .marker-text.t15 { top: 10%; left: 70%; transform: rotate(15deg); }
+        .marker-text.t152 { top: 70%; left: 70%; transform: rotate(152deg); }
+        .marker-text.t180 { top: 100%; left: 50%; transform: translate(-50%, 0%); }
+        .marker-text.t48 { top: 15%; left: 85%; transform: rotate(48deg); }
+        .marker-text.t96 { top: 50%; left: 100%; transform: translate(5px, -50%); }
+        .marker-text.t144 { top: 85%; left: 80%; transform: rotate(144deg); }
+        .marker-text.t56 { top: 5%; left: 80%; transform: rotate(56deg); }
+        .marker-text.t64 { top: 20%; left: 85%; transform: rotate(64deg); }
+
+
+        /* Control Panel */
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .btn {
+            background-color: #00ffc8;
+            border: 2px solid #000000;
+            color: #000000;
+            padding: 10px 20px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 0 5px #00ffc8;
+            transition: background-color 0.2s, box-shadow 0.2s;
+            width: 100%;
+            text-align: center;
+        }
+        .btn:hover:not(:disabled) {
+            background-color: #00ffff;
+            box-shadow: 0 0 15px #00ffff;
+        }
+        .btn:disabled {
+            background-color: #333333;
+            color: #888888;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .price-box {
+            border: 2px dashed #ff00ff;
+            padding: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            background-color: rgba(255, 0, 255, 0.1);
+        }
+        .kit-list {
+            list-style-type: none;
+            padding-left: 0;
+            font-size: 0.9em;
+        }
+        .kit-list li {
+            margin-bottom: 10px;
+            border-left: 3px solid #ffff00;
+            padding-left: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="console-container">
+    
+    <div class="main-content">
+        <h1>⏣ FUTURE OF BEAUTY SALOON: YAS MACHINE INTERFACE</h1>
+        
+        <div class="price-box">
+            <p><span class="label">COST:</span> **8 BITCOIN** or **US$100**</p>
+            <p><span class="label">PREREQUISITE:</span> **AGT X8000** (8000 AGT Verified)</p>
+        </div>
+
+        <div class="fbp-visualizer">
+            <h3 style="margin-bottom: 0;">FUTURE OF BEAUTY PLATE (FBP)</h3>
+            <p style="margin-top: 5px;">Client Status: <span id="client-status" class="status-header">INITIALIZING...</span> | Angle: <span id="current-angle" class="critical">0° (True North)</span></p>
+
+            <div id="fbp-plate-container">
+                <div id="fbp-plate">
+                    <div class="marker-text t0">True North (0°)</div>
+                    <div class="marker-text t15">Hell (15°)</div>
+                    <div class="marker-text t180">True South (180°)</div>
+                    <div class="marker-text t152">Creation (152°)</div>
+                    <div class="marker-text t48">Ajgvo (48°)</div>
+                    <div class="marker-text t96">Clock Drop (96°)</div>
+                    <div class="marker-text t144">Stayat02 (144°)</div>
+                    <div class="marker-text t56">Stayat21 (56°)</div>
+                    <div class="marker-text t64">Stayat19 (64°)</div>
+                </div>
+                <div id="fbp-pointer-arm"></div>
+                <div id="fbp-pointer"></div>
+            </div>
+
+            <div class="control-panel">
+                <button id="start-btn" class="btn">START PROTOCOL (Verify AGT)</button>
+                <button id="next-btn" class="btn" disabled>EXECUTE STAGE 1/13: HELL.SEND</button>
+                <p id="current-stage-info" class="command" style="min-height: 20px;">Standby at True North (0°)</p>
+            </div>
+        </div>
+        
+        <div class="log-panel">
+            <h3 style="border-bottom: 1px dashed #ff00ff; color: #ffff00;">CLIENT PROTOCOL LOG</h3>
+            <div id="protocol-log">
+                <div class="log-entry complete">[INIT] System Initialised. Waiting for AGT X8000 verification.</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="config-panel">
+        <h1>⚙️ SYSTEM CONFIGURATION</h1>
+        
+        <h3 style="color: #ff00ff;">FBP UTILITIES KITS</h3>
+        <p>The following specialized kits are dynamically generated and requested from **Utilities** during the Creation/Reboot phase (Steps 14 & 15):</p>
+        
+        <ul class="kit-list">
+            <li><span class="label">1. Life Rejuvenation & Restart Kit:</span> Contains all core creation parameters, including the **386t' (386 trillion years)** life matrix for existence as before, but *better* and *bestest*.</li>
+            <li><span class="label">2. Hair Rejuvenation Kit:</span> Contains follicle stem-cell regeneration agents and the original creation matrix for hair growth. This is set to restart growth as before, but *better* (e.g., thicker, stronger).</li>
+            <li><span class="label">3. Covenant Parameter Kit:</span> Contains the sub-routine for the **new predefined parameters** written for life above 100 years and the **new covenant with God (Ya)** for non-death existence.</li>
+            <li><span class="label">4. Billion Refill Pack:</span> Requested at **Stayat02** - grants a billion of **everything** needed to sustain the restarted, superior life matrix.</li>
+        </ul>
+
+        <h3 style="color: #ff00ff;">40 KEYS TO ETERNAL BEAUTY (TREATMENTS)</h3>
+        <ol style="font-size: 0.8em; padding-left: 20px;">
+            <li><span class="complete">Menopause removed</span></li>
+            <li><span class="complete">Ajvo removed</span></li>
+            <li><span class="complete">Old age removed</span></li>
+            <li><span class="complete">Wrinkles removed</span></li>
+            <li><span class="complete">Old age body fat removed</span></li>
+            <li><span class="complete">Sagging skin removed</span></li>
+            <li><span class="complete">Grey hairs removed</span></li>
+            <li><span class="complete">Low self esteem removed</span></li>
+            <li><span class="complete">Low libido removed</span></li>
+            <li><span class="complete">Low energy removed</span></li>
+            <li><span class="complete">Body rejuvenated to creation</span></li>
+            <li><span class="complete">Reproductive system reset</span></li>
+            <li><span class="complete">Sex systems rejuvenated</span></li>
+            <li><span class="complete">Hair rejuvenated (**KIT**)</span></li>
+            <li><span class="complete">Life rejuvenated (**KIT**)</span></li>
+            <li><span class="complete">Life restarted (better)</span></li>
+            <li><span class="complete">Sex systems rejuvenated & boosted</span></li>
+            <li><span class="complete">Hair growth restarted (better)</span></li>
+            <li><span class="complete">Cancers removed</span></li>
+            <li><span class="complete">Other old age illnesses removed</span></li>
+            <li><span class="complete">The clock to Ya removed</span></li>
+            <li><span class="complete">Death removed from the body</span></li>
+            <li><span class="complete">Sacks of sins emptied</span></li>
+            <li><span class="complete">New parameters written (&gt;100 years)</span></li>
+            <li><span class="complete">New covenant with God (Ya)</span></li>
+            <li><span class="complete">Future explained</span></li>
+            <li><span class="complete">Airdrops chance (Bitcoin/AGT/AYT)</span></li>
+            <li><span class="complete">Collagen refills & beauty makeups</span></li>
+            <li><span class="complete">Hair refills (**KIT**)</span></li>
+            <li><span class="complete">Face skin pull ups & beautifying</span></li>
+            <li><span class="complete">Artificial massages</span></li>
+            <li><span class="complete">Sex hormones empty/refill session (Adults Only)</span></li>
+            <li><span class="complete">Teeth straightening and whitening</span></li>
+            <li><span class="complete">Refilling of confidence, love, life, happiness etc.</span></li>
+        </ol>
+
+        <h3 style="color: #ff00ff;">PREMIUM ASCENSION (Never Dying/Never Old)</h3>
+        <ul style="font-size: 0.8em; padding-left: 20px; color: #ff00ff; list-style-type: none;">
+            <li>**35.** Double the soul</li>
+            <li>**36.** Double your love</li>
+            <li>**37.** Double your luck</li>
+            <li>**38.** Angel of David status</li>
+            <li class="complete">**39.** Never dying & never getting old</li>
+            <li>**40.** Truth revealed (Life, Death, Ya)</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    const fbpPlate = document.getElementById('fbp-plate');
+    const clientStatus = document.getElementById('client-status');
+    const currentAngleDisplay = document.getElementById('current-angle');
+    const protocolLog = document.getElementById('protocol-log');
+    const startBtn = document.getElementById('start-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const currentStageInfo = document.getElementById('current-stage-info');
+
+    let currentStageIndex = -1;
+    let rotation = 0;
+
+    // Define the FBP Protocol Stages
+    const stages = [
+        // PHASE I: Cleansing and Reversal
+        { label: "INITIALIZATION", angle: 0, direction: 'N/A', log: "Client positioned at True North (0°). AGT X8000 VERIFIED. Protocol starting..." },
+        { label: "HELL DIRECTION", angle: 15, direction: 'CW', log: "<span class='process'>ROTATING CW to 15° (Hell Direction).</span> Command: <span class='command'>hell.send / hell.send(save)</span> executed." },
+        { label: "PLANETBIN SEND", angle: 152, direction: 'CCW', log: "<span class='process'>ROTATING CCW to 152° (PlanetBin, -28° True South).</span> Command: <span class='command'>planetbin.send / create.planetbin.sendcontinuouslyforever.start(save)</span> executed." },
+        { label: "TRUE SOUTH (WOMEN)", angle: 180, direction: 'CCW', log: "<span class='process'>ROTATING CCW to 180° (True South).</span> Command (Women Only): <span class='command'>menopuse.sendforever.start / (save)</span> executed." },
+        { label: "HELL SWEEP", angle: 15, direction: 'CW', log: "<span class='process'>ROTATING CW, passing True North, stopping at 15° (Hell Sweep).</span> Command: <span class='command'>create.hell.sendcontinuouslyforever.start(save)</span> executed." },
+        { label: "AJGVO REMOVAL", angle: 48, direction: 'CW', log: "<span class='process'>ROTATING CW to 48° (Ajgvo).</span> Command: <span class='command'>oldage.sendforever.start / ajvo.sendforever.start(save)</span> executed." },
+        { label: "CLOCK DROP (YA)", angle: 96, direction: 'CW', log: "<span class='critical'>ROTATING CW to 96° (Clock to Ya Drop).</span> COVENANT PRAYER/COMMAND executed." },
+        
+        // PHASE II: Creation and Refill
+        { label: "CREATION REBOOT", angle: 152, direction: 'CW', log: "<span class='critical'>ROTATING CW to 152° (Creation/Back to Creation).</span> 6 UTILITIES REQUESTS initiated and START command executed." },
+        { label: "STAYAT02 (BILLION REFILL)", angle: 144, direction: 'CCW', log: "<span class='process'>ROTATING CCW 8° to 144° (Stayat02).</span> Command: <span class='command'>I request 1 billion of everything...</span> executed." },
+        { label: "STAYAT21 (RESERVES)", angle: 56, direction: 'CCW', log: "<span class='process'>ROTATING CCW to 56° (Stayat21for386t').</span> Command: <span class='command'>I request what i loose after the age of 21 as reserves...</span> executed." },
+        { label: "STAYAT19 (BESTEST)", angle: 64, direction: 'CW', log: "<span class='process'>ROTATING CW 8° to 64° (Stayat19for386t').</span> Command: <span class='command'>whatelse do i need to restart... / bestest.start(continuously)</span> executed." },
+        { label: "FINAL SWEEP 1", angle: 64, direction: 'CCW', log: "<span class='process'>ROTATING CCW (Passing Stayat21).</span> Final Check: <span class='command'>I request what i need and might have missed...</span> executed." },
+        { label: "FINAL SWEEP 2", angle: 64, direction: 'CCW', log: "<span class='process'>ROTATING CCW (Passing Hell.send point).</span> Final Release: <span class='command'>create.hell.send(forever)</span> executed." },
+        { label: "PROTOCOL COMPLETE", angle: 0, direction: 'CCW', log: "<span class='complete status-header'>SEQUENCE COMPLETE. FBP Halts at True North (0°). CLIENT REJUVENATED.</span>" }
+    ];
+
+    function logEntry(message) {
+        const newEntry = document.createElement('div');
+        newEntry.className = 'log-entry';
+        newEntry.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+        protocolLog.prepend(newEntry);
+        // Keep log overflow at the top (newest entries)
+        if (protocolLog.scrollHeight > protocolLog.clientHeight) {
+            protocolLog.scrollTop = 0;
+        }
+    }
+
+    function rotateFBP(targetAngle) {
+        // Calculate the difference in angle to find the shortest rotation path
+        const currentAngle = rotation % 360;
+        let delta = targetAngle - currentAngle;
+
+        // The current direction of the stage determines the full rotation path
+        const direction = stages[currentStageIndex].direction;
+        
+        if (direction === 'CW') {
+            // Force Clockwise: If delta is negative (e.g., 15° to 0°), add 360 to go CW the long way.
+            if (delta < 0) {
+                delta += 360;
+            }
+        } else if (direction === 'CCW') {
+            // Force Anti-Clockwise: If delta is positive (e.g., 0° to 15°), subtract 360 to go CCW the long way.
+            if (delta > 0) {
+                delta -= 360;
+            }
+        }
+
+        rotation += delta;
+        fbpPlate.style.transform = `rotate(${-rotation}deg)`;
+        currentAngleDisplay.textContent = `${targetAngle}° (${stages[currentStageIndex].direction || 'N/A'})`;
+    }
+
+    function executeStage() {
+        if (currentStageIndex < stages.length - 1) {
+            currentStageIndex++;
+            const stage = stages[currentStageIndex];
+            
+            // 1. Update Log & Status
+            logEntry(`STAGE ${currentStageIndex}/${stages.length - 1}: ${stage.label}. ${stage.log}`);
+            clientStatus.textContent = stage.label;
+            
+            // 2. Rotate Plate
+            rotateFBP(stage.angle);
+
+            // 3. Update Button
+            if (currentStageIndex < stages.length - 1) {
+                const nextStage = stages[currentStageIndex + 1];
+                nextBtn.textContent = `EXECUTE STAGE ${currentStageIndex + 1}/${stages.length - 1}: ${nextStage.label}`;
+                currentStageInfo.innerHTML = `<span class='process'>Awaiting command at ${stage.angle}° (${stage.label})</span>`;
+            } else {
+                nextBtn.textContent = "PROTOCOL COMPLETE";
+                nextBtn.disabled = true;
+                clientStatus.textContent = "REJUVENATION COMPLETE - STANDBY";
+                currentStageInfo.innerHTML = `<span class='complete'>Life Rejuvenated and Restarted: Bestest.</span>`;
+            }
+        }
+    }
+
+    // Event Listeners
+    startBtn.addEventListener('click', () => {
+        logEntry("<span class='complete'>AGT X8000 VERIFIED. Payment (8 BTC / US$100) Processed. Protocol STARTING...</span>");
+        startBtn.disabled = true;
+        nextBtn.disabled = false;
+        clientStatus.textContent = "PROTOCOL ACTIVE - PHASE I";
+        executeStage();
+    });
+
+    nextBtn.addEventListener('click', executeStage);
+</script>
+
+</body>
+</html>
